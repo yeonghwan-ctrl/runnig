@@ -85,6 +85,7 @@ export default function PlanPage() {
                 key={wo.dayIndex}
                 workout={wo}
                 shoes={shoes}
+                zones={zones}
               />
             ))}
           </div>
