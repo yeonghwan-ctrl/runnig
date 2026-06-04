@@ -1,17 +1,28 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store'
-import { parsePace, formatPace, RACE_LABEL } from '../lib/paceUtils'
+import { RACE_LABEL } from '../lib/paceUtils'
 import type { RaceDistance } from '../types'
 
 const RACES: RaceDistance[] = ['5K', '10K', 'Half', 'Full']
+
+/** 페이스 분 선택지 (3~12분) */
+const PACE_MINUTES = Array.from({ length: 10 }, (_, i) => i + 3)
+/** 페이스 초 선택지 (0,5,...,55) */
+const PACE_SECONDS = Array.from({ length: 12 }, (_, i) => i * 5)
+
+/** 가장 가까운 5초 단위로 반올림 */
+const roundTo5 = (n: number) => Math.round(n / 5) * 5
 
 export default function Onboarding() {
   const { profile, setProfile } = useStore()
   const navigate = useNavigate()
 
-  const [pace, setPace] = useState(
-    profile ? formatPace(profile.currentPaceSec) : '',
+  const [paceMin, setPaceMin] = useState(
+    profile ? String(Math.floor(profile.currentPaceSec / 60)) : '',
+  )
+  const [paceSec, setPaceSec] = useState(
+    profile ? String(roundTo5(profile.currentPaceSec % 60) % 60) : '0',
   )
   const [weeklyKm, setWeeklyKm] = useState(
     profile ? String(profile.weeklyKm) : '',
@@ -31,13 +42,13 @@ export default function Onboarding() {
   const [error, setError] = useState('')
 
   const submit = () => {
-    const paceSec = parsePace(pace)
+    const currentPaceSec = paceMin ? Number(paceMin) * 60 + Number(paceSec) : 0
     const wk = Number(weeklyKm)
     const lr = Number(longestRunKm)
     const wtr = Number(weeksToRace)
 
-    if (!paceSec) {
-      setError('페이스를 "분:초" 형태(예: 5:30)로 입력해주세요.')
+    if (!currentPaceSec) {
+      setError('현재 페이스를 선택해주세요.')
       return
     }
     if (!wk || wk <= 0) {
@@ -54,7 +65,7 @@ export default function Onboarding() {
     }
 
     setProfile({
-      currentPaceSec: paceSec,
+      currentPaceSec,
       weeklyKm: wk,
       longestRunKm: lr,
       raceDistance,
@@ -75,14 +86,41 @@ export default function Onboarding() {
       </div>
 
       <div className="space-y-5">
-        <Field label="현재 페이스" hint="1km당 기록 (예: 5:30)">
-          <input
-            inputMode="numeric"
-            value={pace}
-            onChange={(e) => setPace(e.target.value)}
-            placeholder="5:30"
-            className={inputCls}
-          />
+        <Field label="현재 페이스" hint="1km당 평균 기록">
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <select
+                value={paceMin}
+                onChange={(e) => setPaceMin(e.target.value)}
+                className={selectCls}
+              >
+                <option value="" disabled>
+                  분
+                </option>
+                {PACE_MINUTES.map((m) => (
+                  <option key={m} value={m}>
+                    {m}분
+                  </option>
+                ))}
+              </select>
+              <Chevron />
+            </div>
+            <span className="text-lg font-bold text-slate-300">:</span>
+            <div className="relative flex-1">
+              <select
+                value={paceSec}
+                onChange={(e) => setPaceSec(e.target.value)}
+                className={selectCls}
+              >
+                {PACE_SECONDS.map((s) => (
+                  <option key={s} value={s}>
+                    {s.toString().padStart(2, '0')}초
+                  </option>
+                ))}
+              </select>
+              <Chevron />
+            </div>
+          </div>
         </Field>
 
         <div className="grid grid-cols-2 gap-3">
@@ -177,6 +215,23 @@ export default function Onboarding() {
 
 const inputCls =
   'w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-3 text-base font-medium outline-none transition-colors focus:border-brand-400 focus:bg-white'
+
+const selectCls =
+  'w-full appearance-none rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-3 pr-9 text-base font-medium outline-none transition-colors focus:border-brand-400 focus:bg-white'
+
+function Chevron() {
+  return (
+    <svg
+      className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2.5}
+    >
+      <path d="M5 7.5l5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
 
 function Field({
   label,
